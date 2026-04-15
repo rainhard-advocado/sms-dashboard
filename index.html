@@ -73,11 +73,11 @@
                     <select id="map-customer" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Prev Balance (F)</label>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Prev Balance</label>
                     <select id="map-prev-balance" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Latest Balance (G)</label>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Latest Balance</label>
                     <select id="map-balance" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
                 </div>
                 <div>
@@ -130,16 +130,28 @@
 
         <!-- Data Table -->
         <div class="glass-card rounded-2xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white">
+            <div class="px-6 py-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white">
                 <div>
                     <h4 class="text-lg font-semibold text-slate-800">Merchant Ranking</h4>
                     <p class="text-xs text-slate-500">Ranked by highest usage percentage (F vs G)</p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span id="rowCount" class="text-xs font-semibold bg-indigo-100 px-2 py-1 rounded text-indigo-700">Displaying top 10</span>
-                    <button id="resetViewBtn" onclick="resetToTop10()" class="hidden text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded transition-colors">
-                        Show top 10 only
-                    </button>
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                    <!-- Search Input -->
+                    <div class="relative group">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input type="text" id="merchantSearch" oninput="handleSearch(this.value)" placeholder="Search merchant..." 
+                            class="pl-9 pr-4 py-1.5 w-full sm:w-64 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                        >
+                    </div>
+                    
+                    <div class="flex items-center justify-between sm:justify-end gap-3">
+                        <span id="rowCount" class="text-xs font-semibold bg-indigo-100 px-2 py-1 rounded text-indigo-700 whitespace-nowrap">Displaying top 10</span>
+                        <button id="resetViewBtn" onclick="resetToTop10()" class="hidden text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded transition-colors whitespace-nowrap">
+                            Show top 10 only
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -147,14 +159,15 @@
                     <thead class="bg-slate-50 text-slate-600 text-sm uppercase">
                         <tr>
                             <th class="px-6 py-3 font-semibold">Merchant</th>
-                            <th class="px-6 py-3 font-semibold text-right">Customers</th>
-                            <th class="px-6 py-3 font-semibold text-right">Latest Balance</th>
+                            <th class="px-6 py-3 font-semibold text-center">Customers</th>
+                            <th class="px-6 py-3 font-semibold text-center">Prev Balance</th>
+                            <th class="px-6 py-3 font-semibold text-center">Latest Balance</th>
                             <th class="px-6 py-3 font-semibold text-right">Usage Status</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody" class="text-slate-700 divide-y divide-slate-100">
                         <tr>
-                            <td colspan="4" class="p-12 text-center text-slate-400 italic">Enter your sheet URL to populate data.</td>
+                            <td colspan="5" class="p-12 text-center text-slate-400 italic">Enter your sheet URL to populate data.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -171,8 +184,10 @@
         let charts = {};
         let currentSheetData = null;
         let processedMerchants = [];
+        let filteredMerchants = []; // New state for search filtering
         let currentDisplayLimit = 10;
         let activeMapping = null;
+        let searchQuery = "";
 
         async function loadDashboard() {
             const urlInput = document.getElementById('sheetUrl').value.trim();
@@ -205,7 +220,7 @@
                 
                 if (data.length < 2) throw new Error("Sheet is empty.");
                 
-                const headers = data[1]; // Row 2 headers
+                const headers = data[1]; 
                 const rows = data.slice(2); 
 
                 currentSheetData = { headers, rows };
@@ -265,7 +280,9 @@
                 usageIdx: parseInt(document.getElementById('map-usage').value)
             };
 
-            currentDisplayLimit = 10; // Reset pagination
+            currentDisplayLimit = 10;
+            searchQuery = "";
+            document.getElementById('merchantSearch').value = "";
             processAndRender();
             document.getElementById('configPanel').classList.add('hidden');
         }
@@ -288,6 +305,31 @@
             return { text: "No change", percent: 0, type: 'neutral' };
         }
 
+        function formatNumber(val) {
+            const num = parseFloat(String(val).replace(/,/g, ''));
+            if (isNaN(num)) return val;
+            return num.toLocaleString();
+        }
+
+        function handleSearch(val) {
+            searchQuery = val.trim().toLowerCase();
+            // Apply filtering only if 3 or more characters, or if input is cleared
+            if (searchQuery.length >= 3 || searchQuery.length === 0) {
+                applyFilter();
+            }
+        }
+
+        function applyFilter() {
+            if (searchQuery.length >= 3) {
+                filteredMerchants = processedMerchants.filter(m => 
+                    m.merchant.toLowerCase().includes(searchQuery)
+                );
+            } else {
+                filteredMerchants = [...processedMerchants];
+            }
+            renderTable();
+        }
+
         function processAndRender() {
             const rows = currentSheetData.rows;
             const mapping = activeMapping;
@@ -297,6 +339,7 @@
                 return {
                     merchant: r[mapping.merchantIdx] || 'Unknown',
                     customers: parseInt(String(r[mapping.customerIdx]).replace(/,/g, '')) || 0,
+                    prevBalance: r[mapping.prevIdx] || '0',
                     balance: r[mapping.balanceIdx] || '0',
                     usageText: status.text,
                     usageValue: status.type === 'used' ? status.percent : 0, 
@@ -306,6 +349,8 @@
 
             processedMerchants = mappedData.filter(d => d.merchant && d.merchant !== 'Unknown' && d.merchant !== '')
                 .sort((a, b) => b.usageValue - a.usageValue);
+
+            filteredMerchants = [...processedMerchants];
 
             const totalMerchants = processedMerchants.length;
             const totalCustomers = processedMerchants.reduce((sum, item) => sum + item.customers, 0);
@@ -321,11 +366,19 @@
         }
 
         function renderTable() {
-            const tableData = processedMerchants.slice(0, currentDisplayLimit);
+            const tableData = filteredMerchants.slice(0, currentDisplayLimit);
             const body = document.getElementById('tableBody');
             const rowCountLabel = document.getElementById('rowCount');
             const paginationContainer = document.getElementById('paginationContainer');
             const resetBtn = document.getElementById('resetViewBtn');
+
+            if (tableData.length === 0) {
+                body.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-400 italic">No merchants found matching "${searchQuery}"</td></tr>`;
+                rowCountLabel.textContent = `0 results`;
+                paginationContainer.classList.add('hidden');
+                resetBtn.classList.add('hidden');
+                return;
+            }
 
             body.innerHTML = tableData.map(item => {
                 let badgeClass = "bg-slate-100 text-slate-700";
@@ -335,8 +388,9 @@
                 return `
                 <tr class="hover:bg-slate-50 transition-colors">
                     <td class="px-6 py-4 font-medium text-slate-900">${item.merchant}</td>
-                    <td class="px-6 py-4 text-right">${item.customers.toLocaleString()}</td>
-                    <td class="px-6 py-4 text-right text-slate-600 font-mono">${item.balance}</td>
+                    <td class="px-6 py-4 text-center text-slate-700">${item.customers.toLocaleString()}</td>
+                    <td class="px-6 py-4 text-center text-slate-700">${formatNumber(item.prevBalance)}</td>
+                    <td class="px-6 py-4 text-center text-slate-700">${formatNumber(item.balance)}</td>
                     <td class="px-6 py-4 text-right">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${badgeClass}">
                             ${item.usageText}
@@ -345,15 +399,15 @@
                 </tr>
             `}).join('');
 
-            rowCountLabel.textContent = `Displaying top ${tableData.length} of ${processedMerchants.length}`;
+            rowCountLabel.textContent = `Displaying ${tableData.length} of ${filteredMerchants.length}`;
             
-            if (currentDisplayLimit > 10) {
+            if (currentDisplayLimit > 10 && filteredMerchants.length > 10) {
                 resetBtn.classList.remove('hidden');
             } else {
                 resetBtn.classList.add('hidden');
             }
 
-            if (currentDisplayLimit < processedMerchants.length) {
+            if (currentDisplayLimit < filteredMerchants.length) {
                 paginationContainer.classList.remove('hidden');
             } else {
                 paginationContainer.classList.add('hidden');
