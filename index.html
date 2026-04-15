@@ -1,11 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMS Usage Dashboard</title>
+    <title>SMS Usage Dashboard Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0f172a',
+                        darkCard: '#1e293b',
+                        darkBorder: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         :root {
             --primary: #4f46e5;
@@ -13,13 +27,22 @@
         }
         body {
             background-color: var(--bg);
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .dark body {
+            background-color: #0f172a;
         }
         .glass-card {
             background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .dark .glass-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(71, 85, 105, 0.4);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
         }
         .loader {
             border: 3px solid #f3f3f3;
@@ -29,7 +52,7 @@
             height: 24px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(3600deg); } }
         
         .modal-overlay {
             background: rgba(15, 23, 42, 0.6);
@@ -44,12 +67,13 @@
             transform: scale(1);
         }
 
-        select {
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 0.5rem center;
-            background-size: 1em;
+        .pulse-red {
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
 
         .history-pill {
@@ -61,114 +85,128 @@
             color: white;
             border-color: #4f46e5;
         }
+        .dark .history-pill {
+            border-color: #475569;
+            color: #94a3b8;
+        }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="p-4 md:p-8 text-slate-900 dark:text-slate-100">
     <div class="max-w-7xl mx-auto">
-        <!-- Timestamp Banner -->
-        <div class="mb-4 flex items-center gap-2 text-slate-500 text-sm font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Data as of 15 Apr 2026, 5PM SGT
+        <!-- Top Toolbar -->
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Data as of 15 Apr 2016, 5PM
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 hover:ring-2 ring-indigo-500 transition-all" title="Toggle Night Mode">
+                    <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                    </svg>
+                    <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <!-- Header -->
         <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-slate-900">SMS Usage Dashboard</h1>
-                <p class="text-slate-500">Merchant Activity & Balance Overview</p>
+                <h1 class="text-3xl font-bold text-slate-900 dark:text-white">SMS Usage Dashboard</h1>
+                <p class="text-slate-500 dark:text-slate-400">Merchant Activity & Balance Overview</p>
             </div>
             <div class="flex items-center gap-3">
                 <input type="text" id="sheetUrl" 
                     placeholder="Paste Google Sheets URL here..." 
-                    class="w-full md:w-96 px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm">
-                <button onclick="loadDashboard()" id="loadBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap">
+                    class="w-full md:w-96 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm">
+                <button onclick="loadDashboard()" id="loadBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap shadow-lg shadow-indigo-500/20">
                     Connect
                 </button>
             </div>
         </header>
 
         <!-- Configuration Panel -->
-        <div id="configPanel" class="hidden mb-8 glass-card p-6 rounded-2xl border-2 border-indigo-100 bg-indigo-50/30">
+        <div id="configPanel" class="hidden mb-8 glass-card p-6 rounded-2xl border-2 border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-950/10">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                     Map Your Columns
                 </h3>
-                <span class="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded">Step 1: Core Data</span>
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-100 dark:bg-indigo-900/40 px-2 py-1 rounded">Setup Required</span>
             </div>
             
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Merchant</label>
-                    <select id="map-merchant" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
+                    <select id="map-merchant" class="w-full p-2 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-sm"></select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Customers</label>
-                    <select id="map-customer" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
+                    <select id="map-customer" class="w-full p-2 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-sm"></select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Prev Balance</label>
-                    <select id="map-prev-balance" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
+                    <select id="map-prev-balance" class="w-full p-2 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-sm"></select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Latest Balance</label>
-                    <select id="map-balance" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
+                    <select id="map-balance" class="w-full p-2 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-sm"></select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Display Usage</label>
-                    <select id="map-usage" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
+                    <select id="map-usage" class="w-full p-2 rounded border border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-sm"></select>
                 </div>
             </div>
 
-            <div class="border-t border-indigo-100 pt-4">
+            <div class="border-t border-indigo-100 dark:border-indigo-900/40 pt-4">
                 <div class="flex justify-between items-center mb-2">
-                    <label class="block text-xs font-bold uppercase text-slate-500">Step 2: History Mapping (Select up to 6 columns)</label>
+                    <label class="block text-xs font-bold uppercase text-slate-500">History Mapping (Max 6)</label>
                     <span id="historyCount" class="text-xs font-bold text-slate-400">0 / 6 selected</span>
                 </div>
-                <div id="historyPills" class="flex flex-wrap gap-2 mb-4">
-                    <!-- History pills injected here -->
-                </div>
+                <div id="historyPills" class="flex flex-wrap gap-2 mb-4"></div>
             </div>
 
             <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <p class="text-xs text-slate-500 italic">History data will replace simulated trends in the detail view.</p>
-                <button onclick="applyMapping()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all w-full sm:w-auto">
+                <p class="text-xs text-slate-500 italic">Settings are saved automatically to this browser.</p>
+                <button onclick="applyMapping()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-all w-full sm:w-auto">
                     Apply & Render Dashboard
                 </button>
             </div>
         </div>
 
-        <!-- Status/Error Container -->
-        <div id="statusMsg" class="hidden mb-6 p-4 rounded-lg bg-red-50 text-red-700 border border-red-200"></div>
+        <div id="statusMsg" class="hidden mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/40"></div>
 
         <!-- KPI Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="glass-card p-6 rounded-2xl border-l-4 border-indigo-500">
-                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Total Merchants</p>
-                <h3 id="kpi-merchants" class="text-3xl font-bold text-slate-900 mt-1">-</h3>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Merchants</p>
+                <h3 id="kpi-merchants" class="text-3xl font-bold text-slate-900 dark:text-white mt-1">-</h3>
             </div>
             <div class="glass-card p-6 rounded-2xl border-l-4 border-emerald-500">
-                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Total Customers</p>
-                <h3 id="kpi-customers" class="text-3xl font-bold text-slate-900 mt-1">-</h3>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Customers</p>
+                <h3 id="kpi-customers" class="text-3xl font-bold text-slate-900 dark:text-white mt-1">-</h3>
             </div>
             <div class="glass-card p-6 rounded-2xl border-l-4 border-amber-500">
-                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Avg Usage %</p>
-                <h3 id="kpi-usage" class="text-3xl font-bold text-slate-900 mt-1">-</h3>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Avg Usage %</p>
+                <h3 id="kpi-usage" class="text-3xl font-bold text-slate-900 dark:text-white mt-1">-</h3>
             </div>
         </div>
 
         <!-- Charts Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <div class="glass-card p-6 rounded-2xl">
-                <h4 class="text-lg font-semibold mb-4 text-slate-800">Top Usage Comparison</h4>
+                <h4 class="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Top Usage Comparison</h4>
                 <div class="h-64">
                     <canvas id="usageChart"></canvas>
                 </div>
             </div>
             <div class="glass-card p-6 rounded-2xl">
-                <h4 class="text-lg font-semibold mb-4 text-slate-800">Customer Distribution</h4>
+                <h4 class="text-lg font-semibold mb-4 text-slate-800 dark:text-slate-200">Customer Distribution</h4>
                 <div class="h-64">
                     <canvas id="customerChart"></canvas>
                 </div>
@@ -176,11 +214,11 @@
         </div>
 
         <!-- Data Table -->
-        <div class="glass-card rounded-2xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white">
+        <div class="glass-card rounded-2xl overflow-hidden border-none shadow-xl">
+            <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/50 dark:bg-slate-900/50">
                 <div>
-                    <h4 class="text-lg font-semibold text-slate-800">Merchant Ranking</h4>
-                    <p class="text-xs text-slate-500">Click a merchant name to view activity history</p>
+                    <h4 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Merchant Ranking</h4>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Ranked by Highest Used % and Lowest Balance</p>
                 </div>
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
                     <div class="relative group">
@@ -188,39 +226,36 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <input type="text" id="merchantSearch" oninput="handleSearch(this.value)" placeholder="Search merchant..." 
-                            class="pl-9 pr-4 py-1.5 w-full sm:w-64 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                            class="pl-9 pr-4 py-1.5 w-full sm:w-48 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                         >
                     </div>
-                    
-                    <div class="flex items-center justify-between sm:justify-end gap-3">
-                        <span id="rowCount" class="text-xs font-semibold bg-indigo-100 px-2 py-1 rounded text-indigo-700 whitespace-nowrap">Displaying top 10</span>
-                        <button id="resetViewBtn" onclick="resetToTop10()" class="hidden text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded transition-colors whitespace-nowrap">
-                            Show top 10 only
-                        </button>
+                    <div id="displayBadge" class="hidden px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold whitespace-nowrap">
+                        Displaying 0 of 0
                     </div>
+                    <button id="resetViewBtn" onclick="resetToTop10()" class="hidden text-xs font-bold text-white bg-indigo-600 px-3 py-1.5 rounded-lg transition-all hover:bg-indigo-700 whitespace-nowrap shadow-sm shadow-indigo-500/20">
+                        Show Top 10 Only
+                    </button>
                 </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-50 text-slate-600 text-sm uppercase">
+                    <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 text-sm uppercase tracking-wider">
                         <tr>
-                            <th class="px-6 py-3 font-semibold">Merchant</th>
-                            <th class="px-6 py-3 font-semibold text-center">Customers</th>
-                            <th class="px-6 py-3 font-semibold text-center">Prev Balance</th>
-                            <th class="px-6 py-3 font-semibold text-center">Latest Balance</th>
-                            <th class="px-6 py-3 font-semibold text-right">Usage Status</th>
+                            <th class="px-6 py-4 font-bold">Merchant</th>
+                            <th class="px-6 py-4 font-bold text-center">Customers</th>
+                            <th class="px-6 py-4 font-bold text-center">Prev Balance</th>
+                            <th class="px-6 py-4 font-bold text-center">Latest Balance</th>
+                            <th class="px-6 py-4 font-bold text-right">Usage Status</th>
                         </tr>
                     </thead>
-                    <tbody id="tableBody" class="text-slate-700 divide-y divide-slate-100">
-                        <tr>
-                            <td colspan="5" class="p-12 text-center text-slate-400 italic">Enter your sheet URL to populate data.</td>
-                        </tr>
+                    <tbody id="tableBody" class="text-slate-700 dark:text-slate-300 divide-y divide-slate-100 dark:divide-slate-800">
+                        <tr><td colspan="5" class="p-12 text-center text-slate-400 italic">No data connected.</td></tr>
                     </tbody>
                 </table>
             </div>
-            <div id="paginationContainer" class="hidden px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-center">
-                <button onclick="loadMore()" class="bg-white border border-slate-300 text-slate-700 px-6 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
-                    Load Next 50 Merchants
+            <div id="paginationContainer" class="hidden px-6 py-4 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex justify-center">
+                <button onclick="loadMore()" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-8 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                    Load Next 50
                 </button>
             </div>
         </div>
@@ -228,54 +263,46 @@
 
     <!-- Merchant Detail Modal -->
     <div id="merchantModal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
-        <div class="modal-content bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden">
-            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
+        <div class="modal-content bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <div class="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-indigo-50/50 dark:bg-slate-800/50">
                 <div>
-                    <h2 id="modalMerchantName" class="text-2xl font-bold text-slate-900">Merchant Name</h2>
-                    <p class="text-slate-500 text-sm">Historical Usage Activity</p>
+                    <h2 id="modalMerchantName" class="text-2xl font-bold text-slate-900 dark:text-white">Merchant Name</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">Historical Usage Activity</p>
                 </div>
-                <button onclick="closeModal()" class="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button onclick="closeModal()" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
             <div class="p-8">
-                <!-- Info Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Current Customers</p>
-                        <p id="modalCustomers" class="text-xl font-bold text-slate-800">-</p>
+                    <div class="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Customers</p>
+                        <p id="modalCustomers" class="text-xl font-bold text-slate-800 dark:text-slate-100">-</p>
                     </div>
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Previous Balance</p>
-                        <p id="modalPrevBal" class="text-xl font-bold text-slate-800">-</p>
+                    <div class="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Prev Bal</p>
+                        <p id="modalPrevBal" class="text-xl font-bold text-slate-800 dark:text-slate-100">-</p>
                     </div>
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Latest Balance</p>
-                        <p id="modalLatestBal" class="text-xl font-bold text-slate-800">-</p>
+                    <div class="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Latest Bal</p>
+                        <p id="modalLatestBal" class="text-xl font-bold text-slate-800 dark:text-slate-100">-</p>
                     </div>
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Period Usage</p>
-                        <p id="modalUsage" class="text-xl font-bold text-indigo-600">-</p>
+                    <div class="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Status</p>
+                        <p id="modalUsage" class="text-xl font-bold text-indigo-600 dark:text-indigo-400">-</p>
                     </div>
                 </div>
 
-                <!-- Chart Area -->
-                <div class="relative bg-slate-50/50 rounded-2xl p-4 border border-dashed border-slate-200">
+                <div class="relative bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl p-4 border border-dashed border-slate-200 dark:border-slate-700">
                     <div class="flex items-center justify-between mb-4 px-2">
-                        <h5 class="text-sm font-bold text-slate-700 uppercase tracking-tight">Usage Trend (All-Time)</h5>
+                        <h5 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tight">Usage Trend</h5>
                         <div id="simulatedBadge" class="hidden">
-                            <span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded tracking-wide flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
-                                SIMULATED DATA
-                            </span>
+                            <span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded flex items-center gap-1">SIMULATED</span>
                         </div>
                         <div id="realBadge" class="hidden">
-                            <span class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded tracking-wide flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
-                                REAL HISTORY DATA
-                            </span>
+                            <span class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded flex items-center gap-1">REAL DATA</span>
                         </div>
                     </div>
                     <div class="h-80 w-full">
@@ -283,12 +310,10 @@
                     </div>
                 </div>
             </div>
-            <div class="px-8 py-4 bg-slate-50 text-right flex justify-between items-center">
-                <p id="modalDisclaimer" class="text-xs text-slate-400 max-w-md text-left">
-                    Note: Historical data in this preview is generated based on current period trends. Real historical data requires a spreadsheet with time-series records.
-                </p>
-                <button onclick="closeModal()" class="bg-slate-900 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all">
-                    Close Details
+            <div class="px-8 py-4 bg-slate-50 dark:bg-slate-800 text-right flex justify-between items-center">
+                <p id="modalDisclaimer" class="text-xs text-slate-400 max-w-md text-left">Historical data view.</p>
+                <button onclick="closeModal()" class="bg-slate-900 dark:bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 dark:hover:bg-indigo-700 transition-all">
+                    Close
                 </button>
             </div>
         </div>
@@ -304,20 +329,58 @@
         let searchQuery = "";
         let selectedHistoryIndices = [];
 
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.1)';
+
+        window.onload = () => {
+            const savedUrl = localStorage.getItem('sms_dash_url');
+            if (savedUrl) {
+                document.getElementById('sheetUrl').value = savedUrl;
+                loadDashboard();
+            }
+            if (localStorage.getItem('sms_dark_mode') === 'true') {
+                toggleDarkMode(true);
+            }
+        };
+
+        function toggleDarkMode(init = false) {
+            const html = document.documentElement;
+            const sun = document.getElementById('sunIcon');
+            const moon = document.getElementById('moonIcon');
+            
+            const isDark = init ? localStorage.getItem('sms_dark_mode') === 'true' : !html.classList.contains('dark');
+            
+            if (isDark) {
+                html.classList.add('dark');
+                sun.classList.add('hidden');
+                moon.classList.remove('hidden');
+            } else {
+                html.classList.remove('dark');
+                sun.classList.remove('hidden');
+                moon.classList.add('hidden');
+            }
+            
+            if (!init) localStorage.setItem('sms_dark_mode', isDark);
+            if (processedMerchants.length > 0) {
+                processAndRender();
+            }
+        }
+
         async function loadDashboard() {
             const urlInput = document.getElementById('sheetUrl').value.trim();
             const statusBox = document.getElementById('statusMsg');
             const loadBtn = document.getElementById('loadBtn');
             const configPanel = document.getElementById('configPanel');
             
-            if (!urlInput) return showStatus("Please provide a valid URL.");
+            if (!urlInput) return;
 
             let csvUrl = "";
             try {
                 const sheetIdMatch = urlInput.match(/\/d\/([a-zA-Z0-9-_]+)/);
-                if (!sheetIdMatch) throw new Error("Invalid Google Sheets URL format.");
+                if (!sheetIdMatch) throw new Error("Invalid URL.");
                 const sheetId = sheetIdMatch[1];
                 csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+                localStorage.setItem('sms_dash_url', urlInput);
             } catch (e) {
                 return showStatus(e.message);
             }
@@ -328,18 +391,13 @@
 
             try {
                 const response = await fetch(csvUrl);
-                if (!response.ok) throw new Error("Could not fetch data. Check sharing settings.");
-                
+                if (!response.ok) throw new Error("Check sheet permissions.");
                 const text = await response.text();
                 let data = parseCSV(text);
+                if (data.length < 2) throw new Error("Empty sheet.");
                 
-                if (data.length < 2) throw new Error("Sheet is empty.");
-                
-                const headers = data[1]; 
-                const rows = data.slice(2); 
-
-                currentSheetData = { headers, rows };
-                setupMappingPanel(headers);
+                currentSheetData = { headers: data[1], rows: data.slice(2) };
+                setupMappingPanel(currentSheetData.headers);
             } catch (err) {
                 showStatus(err.message);
             } finally {
@@ -348,11 +406,10 @@
         }
 
         function parseCSV(text) {
-            const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+            const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
             return lines.map(line => {
                 const result = [];
-                let current = '';
-                let inQuotes = false;
+                let current = '', inQuotes = false;
                 for (let i = 0; i < line.length; i++) {
                     const char = line[i];
                     if (char === '"' && line[i+1] === '"') { current += '"'; i++; }
@@ -368,27 +425,36 @@
         function setupMappingPanel(headers) {
             const configPanel = document.getElementById('configPanel');
             const selects = ['merchant', 'customer', 'prev-balance', 'balance', 'usage'];
-            selectedHistoryIndices = []; // Reset history
+            const savedMap = JSON.parse(localStorage.getItem('sms_dash_map') || '{}');
             
             selects.forEach(id => {
                 const select = document.getElementById(`map-${id}`);
-                select.innerHTML = headers.map((h, i) => `<option value="${i}">${h || `Column ${i+1}`}</option>`).join('');
-                
-                const hLower = headers.map(h => String(h).toLowerCase());
-                if (id === 'merchant') select.value = hLower.findIndex(h => h.includes('merchant')) !== -1 ? hLower.findIndex(h => h.includes('merchant')) : 0;
-                if (id === 'customer') select.value = hLower.findIndex(h => h.includes('customer')) !== -1 ? hLower.findIndex(h => h.includes('customer')) : 1;
-                if (id === 'prev-balance') select.value = hLower.findIndex(h => h.includes('31 mar')) !== -1 ? hLower.findIndex(h => h.includes('31 mar')) : 5;
-                if (id === 'balance') select.value = hLower.findIndex(h => h.includes('15 apr')) !== -1 ? hLower.findIndex(h => h.includes('15 apr')) : 6;
-                if (id === 'usage') select.value = hLower.findIndex(h => h.includes('usage')) !== -1 ? hLower.findIndex(h => h.includes('usage')) : headers.length - 1;
+                select.innerHTML = headers.map((h, i) => `<option value="${i}">${h || `Col ${i+1}`}</option>`).join('');
+                if (savedMap[id] !== undefined) select.value = savedMap[id];
             });
 
-            // History Pills
+            const dateKeywords = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', '/', '-', '202'];
+            
             const pillContainer = document.getElementById('historyPills');
-            pillContainer.innerHTML = headers.map((h, i) => `
-                <div onclick="toggleHistoryColumn(${i})" id="pill-${i}" class="history-pill px-3 py-1 rounded-full border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                    ${h || `Col ${i+1}`}
-                </div>
-            `).join('');
+            pillContainer.innerHTML = headers.map((h, i) => {
+                const lowerH = (h || "").toLowerCase();
+                const isDate = dateKeywords.some(key => lowerH.includes(key));
+                const isSelected = (savedMap.history || []).includes(i);
+                
+                if (!isDate && !isSelected) return '';
+                
+                return `
+                    <div onclick="toggleHistoryColumn(${i})" id="pill-${i}" class="history-pill px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800">
+                        ${h || `Col ${i+1}`}
+                    </div>
+                `;
+            }).join('');
+
+            selectedHistoryIndices = savedMap.history || [];
+            selectedHistoryIndices.forEach(idx => {
+                const p = document.getElementById(`pill-${idx}`);
+                if (p) p.classList.add('active');
+            });
 
             updateHistoryCount();
             configPanel.classList.remove('hidden');
@@ -396,15 +462,11 @@
 
         function toggleHistoryColumn(idx) {
             const pill = document.getElementById(`pill-${idx}`);
-            const currentIdx = selectedHistoryIndices.indexOf(idx);
-
-            if (currentIdx > -1) {
-                selectedHistoryIndices.splice(currentIdx, 1);
+            const pos = selectedHistoryIndices.indexOf(idx);
+            if (pos > -1) {
+                selectedHistoryIndices.splice(pos, 1);
                 pill.classList.remove('active');
-            } else {
-                if (selectedHistoryIndices.length >= 6) {
-                    return; // Limit to 6 as requested
-                }
+            } else if (selectedHistoryIndices.length < 6) {
                 selectedHistoryIndices.push(idx);
                 pill.classList.add('active');
             }
@@ -412,255 +474,243 @@
         }
 
         function updateHistoryCount() {
-            const label = document.getElementById('historyCount');
-            label.textContent = `${selectedHistoryIndices.length} / 6 selected`;
-            label.className = selectedHistoryIndices.length >= 6 ? 'text-xs font-bold text-amber-600' : 'text-xs font-bold text-slate-400';
+            document.getElementById('historyCount').textContent = `${selectedHistoryIndices.length} / 6 selected`;
         }
 
         function applyMapping() {
-            if (!currentSheetData) return;
-            
             activeMapping = {
                 merchantIdx: parseInt(document.getElementById('map-merchant').value),
                 customerIdx: parseInt(document.getElementById('map-customer').value),
                 prevIdx: parseInt(document.getElementById('map-prev-balance').value),
                 balanceIdx: parseInt(document.getElementById('map-balance').value),
                 usageIdx: parseInt(document.getElementById('map-usage').value),
-                historyIndices: [...selectedHistoryIndices].sort((a,b) => a-b) // Keep chronological order based on sheet column order
+                historyIndices: [...selectedHistoryIndices].sort((a,b) => a-b)
             };
-
-            currentDisplayLimit = 10;
-            searchQuery = "";
-            document.getElementById('merchantSearch').value = "";
+            localStorage.setItem('sms_dash_map', JSON.stringify({
+                merchant: activeMapping.merchantIdx,
+                customer: activeMapping.customerIdx,
+                'prev-balance': activeMapping.prevIdx,
+                balance: activeMapping.balanceIdx,
+                usage: activeMapping.usageIdx,
+                history: selectedHistoryIndices
+            }));
             processAndRender();
             document.getElementById('configPanel').classList.add('hidden');
         }
 
-        function calculateUsageStatus(f, g) {
-            const prev = parseFloat(String(f).replace(/,/g, '')) || 0;
-            const current = parseFloat(String(g).replace(/,/g, '')) || 0;
-
-            if (prev === 0 && current === 0) return { text: "No change", percent: 0, type: 'neutral' };
-            if (prev === 0) return { text: "Topped up 100%", percent: 100, type: 'topup' };
-            
-            if (current < prev) {
-                const diffPercent = Math.round(((prev - current) / prev) * 100);
-                return { text: `Used ${diffPercent}%`, percent: diffPercent, type: 'used' };
-            } else if (current > prev) {
-                const diffPercent = Math.round(((current - prev) / prev) * 100);
-                return { text: `Topped up ${diffPercent}%`, percent: diffPercent, type: 'topup' };
-            }
-            
-            return { text: "No change", percent: 0, type: 'neutral' };
-        }
-
-        function formatNumber(val) {
-            const num = parseFloat(String(val).replace(/,/g, ''));
-            if (isNaN(num)) return val;
-            return num.toLocaleString();
-        }
-
-        function handleSearch(val) {
-            searchQuery = val.trim().toLowerCase();
-            if (searchQuery.length >= 3 || searchQuery.length === 0) {
-                applyFilter();
-            }
-        }
-
-        function applyFilter() {
-            if (searchQuery.length >= 3) {
-                filteredMerchants = processedMerchants.filter(m => 
-                    m.merchant.toLowerCase().includes(searchQuery)
-                );
-            } else {
-                filteredMerchants = [...processedMerchants];
-            }
-            renderTable();
-        }
-
         function processAndRender() {
-            const rows = currentSheetData.rows;
             const mapping = activeMapping;
-
-            const mappedData = rows.map((r, idx) => {
-                const status = calculateUsageStatus(r[mapping.prevIdx], r[mapping.balanceIdx]);
+            const mappedData = currentSheetData.rows.map((r, idx) => {
+                const prevVal = parseFloat(String(r[mapping.prevIdx]).replace(/,/g, '')) || 0;
+                const curVal = parseFloat(String(r[mapping.balanceIdx]).replace(/,/g, '')) || 0;
                 
-                // Extract History
-                const historyData = mapping.historyIndices.map(hIdx => {
-                    const val = parseFloat(String(r[hIdx]).replace(/,/g, ''));
-                    return isNaN(val) ? 0 : val;
-                });
+                let statusText = "No activity";
+                let statusType = "neutral";
+                let numericValue = 0;
+
+                if (prevVal === 0 && curVal === 0) {
+                    statusText = "No activity";
+                    statusType = "neutral";
+                } else if (prevVal === 0) {
+                    statusText = "Topped up 100%";
+                    statusType = "topup";
+                    numericValue = 100;
+                } else if (curVal < prevVal) {
+                    const perc = Math.round(((prevVal - curVal) / prevVal) * 100);
+                    statusText = `Used ${perc}%`;
+                    statusType = "used";
+                    numericValue = perc;
+                } else if (curVal > prevVal) {
+                    const perc = Math.round(((curVal - prevVal) / prevVal) * 100);
+                    statusText = `Topped up ${perc}%`;
+                    statusType = "topup";
+                    numericValue = perc;
+                } else {
+                    statusText = "No activity";
+                    statusType = "neutral";
+                }
 
                 return {
                     id: idx,
-                    merchant: r[mapping.merchantIdx] || 'Unknown',
+                    merchant: r[mapping.merchantIdx] || '?',
                     customers: parseInt(String(r[mapping.customerIdx]).replace(/,/g, '')) || 0,
                     prevBalance: r[mapping.prevIdx] || '0',
                     balance: r[mapping.balanceIdx] || '0',
-                    usageText: status.text,
-                    usageValue: status.type === 'used' ? status.percent : 0, 
-                    statusType: status.type,
-                    history: historyData
+                    numericBalance: curVal,
+                    usageText: statusText,
+                    usageValue: numericValue,
+                    statusType: statusType,
+                    history: mapping.historyIndices.map(hIdx => parseFloat(String(r[hIdx]).replace(/,/g, '')) || 0)
                 };
-            });
+            }).filter(d => d.merchant !== '?');
 
-            processedMerchants = mappedData.filter(d => d.merchant && d.merchant !== 'Unknown' && d.merchant !== '')
-                .sort((a, b) => b.usageValue - a.usageValue);
+            processedMerchants = mappedData.sort((a, b) => {
+                const aTypeScore = a.statusType === 'used' ? 0 : 1;
+                const bTypeScore = b.statusType === 'used' ? 0 : 1;
+                if (aTypeScore !== bTypeScore) return aTypeScore - bTypeScore;
+                if (a.statusType === 'used' && a.usageValue !== b.usageValue) {
+                    return b.usageValue - a.usageValue;
+                }
+                return a.numericBalance - b.numericBalance;
+            });
 
             filteredMerchants = [...processedMerchants];
 
-            const totalMerchants = processedMerchants.length;
-            const totalCustomers = processedMerchants.reduce((sum, item) => sum + item.customers, 0);
-            const usedRows = processedMerchants.filter(d => d.statusType === 'used');
-            const avgUsage = usedRows.length > 0 ? usedRows.reduce((sum, item) => sum + item.usageValue, 0) / usedRows.length : 0;
-
-            document.getElementById('kpi-merchants').textContent = totalMerchants.toLocaleString();
-            document.getElementById('kpi-customers').textContent = totalCustomers.toLocaleString();
-            document.getElementById('kpi-usage').textContent = `${avgUsage.toFixed(1)}%`;
+            document.getElementById('kpi-merchants').textContent = processedMerchants.length.toLocaleString();
+            document.getElementById('kpi-customers').textContent = processedMerchants.reduce((a,b) => a + b.customers, 0).toLocaleString();
+            const usedOnly = processedMerchants.filter(m => m.statusType === 'used');
+            document.getElementById('kpi-usage').textContent = usedOnly.length ? (usedOnly.reduce((a,b) => a + b.usageValue, 0) / usedOnly.length).toFixed(1) + '%' : '0%';
 
             renderTable();
-            renderCharts(processedMerchants.slice(0, 10)); 
+            renderCharts(processedMerchants.slice(0, 10));
         }
 
         function renderTable() {
-            const tableData = filteredMerchants.slice(0, currentDisplayLimit);
+            const displayLimit = Math.min(currentDisplayLimit, filteredMerchants.length);
+            const tableData = filteredMerchants.slice(0, displayLimit);
             const body = document.getElementById('tableBody');
-            const rowCountLabel = document.getElementById('rowCount');
-            const paginationContainer = document.getElementById('paginationContainer');
             const resetBtn = document.getElementById('resetViewBtn');
+            const displayBadge = document.getElementById('displayBadge');
 
             if (tableData.length === 0) {
-                body.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-400 italic">No merchants found matching "${searchQuery}"</td></tr>`;
-                rowCountLabel.textContent = `0 results`;
-                paginationContainer.classList.add('hidden');
-                resetBtn.classList.add('hidden');
+                body.innerHTML = `<tr><td colspan="5" class="p-12 text-center text-slate-400">No results found.</td></tr>`;
+                displayBadge.classList.add('hidden');
                 return;
             }
 
+            displayBadge.textContent = `Displaying ${displayLimit} of ${filteredMerchants.length}`;
+            displayBadge.classList.remove('hidden');
+
             body.innerHTML = tableData.map(item => {
-                let badgeClass = "bg-slate-100 text-slate-700";
-                if (item.statusType === 'used') badgeClass = item.usageValue > 80 ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800";
-                if (item.statusType === 'topup') badgeClass = "bg-emerald-100 text-emerald-800";
+                let badgeClass = "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+                let pulseClass = "";
+                if (item.statusType === 'used') {
+                    if (item.usageValue > 80) {
+                        badgeClass = "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300";
+                        pulseClass = "pulse-red";
+                    } else {
+                        badgeClass = "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300";
+                    }
+                }
+                if (item.statusType === 'topup') badgeClass = "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300";
 
                 return `
-                <tr class="hover:bg-slate-50 transition-colors cursor-pointer group" onclick="showMerchantDetails(${item.id})">
-                    <td class="px-6 py-4">
-                        <span class="font-bold text-indigo-600 group-hover:text-indigo-800 underline decoration-indigo-200 decoration-2 underline-offset-4 transition-all">
-                            ${item.merchant}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-center text-slate-700">${item.customers.toLocaleString()}</td>
-                    <td class="px-6 py-4 text-center text-slate-700">${formatNumber(item.prevBalance)}</td>
-                    <td class="px-6 py-4 text-center text-slate-700">${formatNumber(item.balance)}</td>
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group" onclick="showMerchantDetails(${item.id})">
+                    <td class="px-6 py-4 font-bold text-indigo-600 dark:text-indigo-400 hover:underline">${item.merchant}</td>
+                    <td class="px-6 py-4 text-center">${item.customers.toLocaleString()}</td>
+                    <td class="px-6 py-4 text-center">${item.prevBalance}</td>
+                    <td class="px-6 py-4 text-center">${item.balance}</td>
                     <td class="px-6 py-4 text-right">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${badgeClass}">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${badgeClass} ${pulseClass}">
                             ${item.usageText}
                         </span>
                     </td>
-                </tr>
-            `}).join('');
+                </tr>`;
+            }).join('');
 
-            rowCountLabel.textContent = `Displaying ${tableData.length} of ${filteredMerchants.length}`;
+            resetBtn.classList.toggle('hidden', currentDisplayLimit <= 10);
+            document.getElementById('paginationContainer').classList.toggle('hidden', currentDisplayLimit >= filteredMerchants.length);
+        }
+
+        function renderCharts(data) {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#94a3b8' : '#64748b';
             
-            if (currentDisplayLimit > 10 && filteredMerchants.length > 10) {
-                resetBtn.classList.remove('hidden');
-            } else {
-                resetBtn.classList.add('hidden');
-            }
+            if (charts.usage) charts.usage.destroy();
+            charts.usage = new Chart(document.getElementById('usageChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.merchant),
+                    datasets: [{
+                        label: 'Usage %',
+                        data: data.map(d => d.statusType === 'used' ? d.usageValue : 0),
+                        backgroundColor: '#6366f1',
+                        borderRadius: 8
+                    }]
+                },
+                options: { 
+                    indexAxis: 'y', 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { max: 100, ticks: { color: textColor } },
+                        y: { ticks: { color: textColor } }
+                    }
+                }
+            });
 
-            if (currentDisplayLimit < filteredMerchants.length) {
-                paginationContainer.classList.remove('hidden');
-            } else {
-                paginationContainer.classList.add('hidden');
-            }
+            if (charts.customer) charts.customer.destroy();
+            charts.customer = new Chart(document.getElementById('customerChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(d => d.merchant),
+                    datasets: [{
+                        data: data.map(d => d.customers),
+                        backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: textColor, font: { size: 10 } } } }
+                }
+            });
         }
 
         function showMerchantDetails(rowId) {
-            const merchantData = processedMerchants.find(m => m.id === rowId);
-            if (!merchantData) return;
-
-            document.getElementById('modalMerchantName').textContent = merchantData.merchant;
-            document.getElementById('modalCustomers').textContent = merchantData.customers.toLocaleString();
-            document.getElementById('modalPrevBal').textContent = formatNumber(merchantData.prevBalance);
-            document.getElementById('modalLatestBal').textContent = formatNumber(merchantData.balance);
-            document.getElementById('modalUsage').textContent = merchantData.usageText;
+            const m = processedMerchants.find(m => m.id === rowId);
+            if (!m) return;
+            document.getElementById('modalMerchantName').textContent = m.merchant;
+            document.getElementById('modalCustomers').textContent = m.customers.toLocaleString();
+            document.getElementById('modalPrevBal').textContent = m.prevBalance;
+            document.getElementById('modalLatestBal').textContent = m.balance;
+            document.getElementById('modalUsage').textContent = m.usageText;
 
             const modal = document.getElementById('merchantModal');
             modal.classList.remove('hidden');
             setTimeout(() => modal.classList.add('modal-active'), 10);
 
-            renderHistoryChart(merchantData);
-        }
-
-        function renderHistoryChart(merchant) {
             if (charts.history) charts.history.destroy();
+            const hasReal = m.history && m.history.length > 0;
+            const labels = hasReal ? activeMapping.historyIndices.map(i => currentSheetData.headers[i]) : ['W1','W2','W3','W4'];
+            const points = hasReal ? m.history : [10, 20, 15, m.statusType === 'used' ? m.usageValue : 0];
 
-            const ctx = document.getElementById('historyChart').getContext('2d');
-            const hasRealHistory = merchant.history && merchant.history.length > 0;
-            
-            // Logic to switch between real and simulated
-            let labels = [];
-            let dataPoints = [];
-            
-            if (hasRealHistory) {
-                labels = activeMapping.historyIndices.map(idx => currentSheetData.headers[idx]);
-                dataPoints = merchant.history;
-                document.getElementById('simulatedBadge').classList.add('hidden');
-                document.getElementById('realBadge').classList.remove('hidden');
-                document.getElementById('modalDisclaimer').textContent = "This chart is showing verified historical data selected from your spreadsheet columns.";
-            } else {
-                labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const baseUsage = merchant.usageValue || 15;
-                let seed = 0;
-                for(let i=0; i<merchant.merchant.length; i++) seed += merchant.merchant.charCodeAt(i);
-                dataPoints = labels.map((_, i) => {
-                    const variance = Math.sin(seed + i) * 15;
-                    return Math.max(2, Math.min(100, baseUsage + variance + (Math.random() * 5)));
-                });
-                document.getElementById('simulatedBadge').classList.remove('hidden');
-                document.getElementById('realBadge').classList.add('hidden');
-                document.getElementById('modalDisclaimer').textContent = "Note: Historical data in this preview is generated based on current period trends. Select history columns in mapping to use real data.";
-            }
+            document.getElementById('realBadge').classList.toggle('hidden', !hasReal);
+            document.getElementById('simulatedBadge').classList.toggle('hidden', hasReal);
 
-            charts.history = new Chart(ctx, {
+            charts.history = new Chart(document.getElementById('historyChart'), {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels,
                     datasets: [{
-                        label: hasRealHistory ? 'Usage Value' : 'Usage Activity %',
-                        data: dataPoints,
+                        label: 'Balance History',
+                        data: points,
                         borderColor: '#4f46e5',
                         backgroundColor: 'rgba(79, 70, 229, 0.1)',
                         fill: true,
                         tension: 0.4,
-                        borderWidth: 3,
-                        pointBackgroundColor: '#fff',
-                        pointBorderColor: '#4f46e5',
-                        pointBorderWidth: 2,
-                        pointRadius: 5
+                        borderWidth: 4,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#fff'
                     }]
                 },
-                options: {
-                    responsive: true,
+                options: { 
+                    responsive: true, 
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false
-                        }
-                    },
-                    scales: {
-                        y: { 
-                            beginAtZero: true, 
-                            ticks: { 
-                                callback: (v) => hasRealHistory ? v.toLocaleString() : v + '%' 
-                            }
-                        },
-                        x: { grid: { display: false } }
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        y: { beginAtZero: true, ticks: { color: Chart.defaults.color } },
+                        x: { ticks: { color: Chart.defaults.color } }
                     }
                 }
             });
+        }
+
+        function handleSearch(v) {
+            searchQuery = v.toLowerCase();
+            filteredMerchants = processedMerchants.filter(m => m.merchant.toLowerCase().includes(searchQuery));
+            renderTable();
         }
 
         function closeModal() {
@@ -669,77 +719,10 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
-        function loadMore() {
-            currentDisplayLimit += 50;
-            renderTable();
-        }
-
-        function resetToTop10() {
-            currentDisplayLimit = 10;
-            renderTable();
-            document.querySelector('table').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
-        function renderCharts(data) {
-            if (charts.usage) charts.usage.destroy();
-            if (charts.customer) charts.customer.destroy();
-
-            const ctx1 = document.getElementById('usageChart').getContext('2d');
-            charts.usage = new Chart(ctx1, {
-                type: 'bar',
-                data: {
-                    labels: data.map(d => d.merchant),
-                    datasets: [{
-                        label: 'Usage %',
-                        data: data.map(d => d.usageValue),
-                        backgroundColor: '#6366f1',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: (ctx) => `Used ${ctx.raw}%` } }
-                    },
-                    scales: { x: { max: 100, beginAtZero: true } }
-                }
-            });
-
-            const ctx2 = document.getElementById('customerChart').getContext('2d');
-            charts.customer = new Chart(ctx2, {
-                type: 'doughnut',
-                data: {
-                    labels: data.map(d => d.merchant),
-                    datasets: [{
-                        data: data.map(d => d.customers),
-                        backgroundColor: [
-                            '#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-                            '#ec4899', '#06b6d4', '#f97316', '#64748b', '#14b8a6'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 9 } } } }
-                }
-            });
-        }
-
-        function setLoading(isLoading) {
-            const btn = document.getElementById('loadBtn');
-            btn.disabled = isLoading;
-            btn.innerHTML = isLoading ? `<div class="loader"></div> Loading...` : `Connect`;
-        }
-
-        function showStatus(msg) {
-            const box = document.getElementById('statusMsg');
-            box.textContent = msg;
-            box.classList.remove('hidden');
-        }
+        function loadMore() { currentDisplayLimit += 50; renderTable(); }
+        function resetToTop10() { currentDisplayLimit = 10; renderTable(); }
+        function setLoading(l) { document.getElementById('loadBtn').disabled = l; document.getElementById('loadBtn').innerHTML = l ? `<div class="loader"></div>` : 'Connect'; }
+        function showStatus(m) { const s = document.getElementById('statusMsg'); s.textContent = m; s.classList.remove('hidden'); }
     </script>
 </body>
 </html>
