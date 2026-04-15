@@ -52,7 +52,7 @@
             height: 24px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(3600deg); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         .modal-overlay {
             background: rgba(15, 23, 42, 0.6);
@@ -99,7 +99,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Data as of 15 Apr 2016, 5PM
+                Data as of 15 Apr 2026, 5PM SGT
             </div>
             
             <div class="flex items-center gap-3">
@@ -165,14 +165,14 @@
 
             <div class="border-t border-indigo-100 dark:border-indigo-900/40 pt-4">
                 <div class="flex justify-between items-center mb-2">
-                    <label class="block text-xs font-bold uppercase text-slate-500">History Mapping (Max 6)</label>
+                    <label class="block text-xs font-bold uppercase text-slate-500">History Mapping (Select up to 6 dates)</label>
                     <span id="historyCount" class="text-xs font-bold text-slate-400">0 / 6 selected</span>
                 </div>
                 <div id="historyPills" class="flex flex-wrap gap-2 mb-4"></div>
             </div>
 
             <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <p class="text-xs text-slate-500 italic">Settings are saved automatically to this browser.</p>
+                <p class="text-xs text-slate-500 italic">History data will replace simulated trends in the detail view.</p>
                 <button onclick="applyMapping()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-all w-full sm:w-auto">
                     Apply & Render Dashboard
                 </button>
@@ -311,7 +311,7 @@
                 </div>
             </div>
             <div class="px-8 py-4 bg-slate-50 dark:bg-slate-800 text-right flex justify-between items-center">
-                <p id="modalDisclaimer" class="text-xs text-slate-400 max-w-md text-left">Historical data view.</p>
+                <p id="modalDisclaimer" class="text-xs text-slate-400 max-w-md text-left">This chart is showing verified historical data selected from your spreadsheet columns.</p>
                 <button onclick="closeModal()" class="bg-slate-900 dark:bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 dark:hover:bg-indigo-700 transition-all">
                     Close
                 </button>
