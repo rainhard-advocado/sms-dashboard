@@ -30,6 +30,20 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .modal-overlay {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        .modal-active .modal-content {
+            transform: scale(1);
+        }
+
         select {
             appearance: none;
             background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
@@ -37,10 +51,28 @@
             background-position: right 0.5rem center;
             background-size: 1em;
         }
+
+        .history-pill {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .history-pill.active {
+            background-color: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
+        <!-- Timestamp Banner -->
+        <div class="mb-4 flex items-center gap-2 text-slate-500 text-sm font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Data as of 15 Apr 2026, 5PM SGT
+        </div>
+
         <!-- Header -->
         <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -59,11 +91,15 @@
 
         <!-- Configuration Panel -->
         <div id="configPanel" class="hidden mb-8 glass-card p-6 rounded-2xl border-2 border-indigo-100 bg-indigo-50/30">
-            <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                Map Your Columns
-            </h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                    Map Your Columns
+                </h3>
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded">Step 1: Core Data</span>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Merchant</label>
                     <select id="map-merchant" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
@@ -81,12 +117,23 @@
                     <select id="map-balance" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Sheet Usage Column</label>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Display Usage</label>
                     <select id="map-usage" class="w-full p-2 rounded border border-slate-300 text-sm"></select>
                 </div>
             </div>
+
+            <div class="border-t border-indigo-100 pt-4">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="block text-xs font-bold uppercase text-slate-500">Step 2: History Mapping (Select up to 6 columns)</label>
+                    <span id="historyCount" class="text-xs font-bold text-slate-400">0 / 6 selected</span>
+                </div>
+                <div id="historyPills" class="flex flex-wrap gap-2 mb-4">
+                    <!-- History pills injected here -->
+                </div>
+            </div>
+
             <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <p class="text-xs text-slate-500 italic">The dashboard will use your formula to re-calculate usage based on Prev and Latest balance.</p>
+                <p class="text-xs text-slate-500 italic">History data will replace simulated trends in the detail view.</p>
                 <button onclick="applyMapping()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all w-full sm:w-auto">
                     Apply & Render Dashboard
                 </button>
@@ -133,10 +180,9 @@
             <div class="px-6 py-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white">
                 <div>
                     <h4 class="text-lg font-semibold text-slate-800">Merchant Ranking</h4>
-                    <p class="text-xs text-slate-500">Ranked by highest usage percentage (F vs G)</p>
+                    <p class="text-xs text-slate-500">Click a merchant name to view activity history</p>
                 </div>
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                    <!-- Search Input -->
                     <div class="relative group">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -180,14 +226,83 @@
         </div>
     </div>
 
+    <!-- Merchant Detail Modal -->
+    <div id="merchantModal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+        <div class="modal-content bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden">
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
+                <div>
+                    <h2 id="modalMerchantName" class="text-2xl font-bold text-slate-900">Merchant Name</h2>
+                    <p class="text-slate-500 text-sm">Historical Usage Activity</p>
+                </div>
+                <button onclick="closeModal()" class="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="p-8">
+                <!-- Info Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Current Customers</p>
+                        <p id="modalCustomers" class="text-xl font-bold text-slate-800">-</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Previous Balance</p>
+                        <p id="modalPrevBal" class="text-xl font-bold text-slate-800">-</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Latest Balance</p>
+                        <p id="modalLatestBal" class="text-xl font-bold text-slate-800">-</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p class="text-xs font-bold text-slate-400 uppercase mb-1">Period Usage</p>
+                        <p id="modalUsage" class="text-xl font-bold text-indigo-600">-</p>
+                    </div>
+                </div>
+
+                <!-- Chart Area -->
+                <div class="relative bg-slate-50/50 rounded-2xl p-4 border border-dashed border-slate-200">
+                    <div class="flex items-center justify-between mb-4 px-2">
+                        <h5 class="text-sm font-bold text-slate-700 uppercase tracking-tight">Usage Trend (All-Time)</h5>
+                        <div id="simulatedBadge" class="hidden">
+                            <span class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded tracking-wide flex items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
+                                SIMULATED DATA
+                            </span>
+                        </div>
+                        <div id="realBadge" class="hidden">
+                            <span class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded tracking-wide flex items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                REAL HISTORY DATA
+                            </span>
+                        </div>
+                    </div>
+                    <div class="h-80 w-full">
+                        <canvas id="historyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="px-8 py-4 bg-slate-50 text-right flex justify-between items-center">
+                <p id="modalDisclaimer" class="text-xs text-slate-400 max-w-md text-left">
+                    Note: Historical data in this preview is generated based on current period trends. Real historical data requires a spreadsheet with time-series records.
+                </p>
+                <button onclick="closeModal()" class="bg-slate-900 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all">
+                    Close Details
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let charts = {};
         let currentSheetData = null;
         let processedMerchants = [];
-        let filteredMerchants = []; // New state for search filtering
+        let filteredMerchants = []; 
         let currentDisplayLimit = 10;
         let activeMapping = null;
         let searchQuery = "";
+        let selectedHistoryIndices = [];
 
         async function loadDashboard() {
             const urlInput = document.getElementById('sheetUrl').value.trim();
@@ -253,6 +368,7 @@
         function setupMappingPanel(headers) {
             const configPanel = document.getElementById('configPanel');
             const selects = ['merchant', 'customer', 'prev-balance', 'balance', 'usage'];
+            selectedHistoryIndices = []; // Reset history
             
             selects.forEach(id => {
                 const select = document.getElementById(`map-${id}`);
@@ -266,7 +382,39 @@
                 if (id === 'usage') select.value = hLower.findIndex(h => h.includes('usage')) !== -1 ? hLower.findIndex(h => h.includes('usage')) : headers.length - 1;
             });
 
+            // History Pills
+            const pillContainer = document.getElementById('historyPills');
+            pillContainer.innerHTML = headers.map((h, i) => `
+                <div onclick="toggleHistoryColumn(${i})" id="pill-${i}" class="history-pill px-3 py-1 rounded-full border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                    ${h || `Col ${i+1}`}
+                </div>
+            `).join('');
+
+            updateHistoryCount();
             configPanel.classList.remove('hidden');
+        }
+
+        function toggleHistoryColumn(idx) {
+            const pill = document.getElementById(`pill-${idx}`);
+            const currentIdx = selectedHistoryIndices.indexOf(idx);
+
+            if (currentIdx > -1) {
+                selectedHistoryIndices.splice(currentIdx, 1);
+                pill.classList.remove('active');
+            } else {
+                if (selectedHistoryIndices.length >= 6) {
+                    return; // Limit to 6 as requested
+                }
+                selectedHistoryIndices.push(idx);
+                pill.classList.add('active');
+            }
+            updateHistoryCount();
+        }
+
+        function updateHistoryCount() {
+            const label = document.getElementById('historyCount');
+            label.textContent = `${selectedHistoryIndices.length} / 6 selected`;
+            label.className = selectedHistoryIndices.length >= 6 ? 'text-xs font-bold text-amber-600' : 'text-xs font-bold text-slate-400';
         }
 
         function applyMapping() {
@@ -277,7 +425,8 @@
                 customerIdx: parseInt(document.getElementById('map-customer').value),
                 prevIdx: parseInt(document.getElementById('map-prev-balance').value),
                 balanceIdx: parseInt(document.getElementById('map-balance').value),
-                usageIdx: parseInt(document.getElementById('map-usage').value)
+                usageIdx: parseInt(document.getElementById('map-usage').value),
+                historyIndices: [...selectedHistoryIndices].sort((a,b) => a-b) // Keep chronological order based on sheet column order
             };
 
             currentDisplayLimit = 10;
@@ -313,7 +462,6 @@
 
         function handleSearch(val) {
             searchQuery = val.trim().toLowerCase();
-            // Apply filtering only if 3 or more characters, or if input is cleared
             if (searchQuery.length >= 3 || searchQuery.length === 0) {
                 applyFilter();
             }
@@ -334,16 +482,25 @@
             const rows = currentSheetData.rows;
             const mapping = activeMapping;
 
-            const mappedData = rows.map(r => {
+            const mappedData = rows.map((r, idx) => {
                 const status = calculateUsageStatus(r[mapping.prevIdx], r[mapping.balanceIdx]);
+                
+                // Extract History
+                const historyData = mapping.historyIndices.map(hIdx => {
+                    const val = parseFloat(String(r[hIdx]).replace(/,/g, ''));
+                    return isNaN(val) ? 0 : val;
+                });
+
                 return {
+                    id: idx,
                     merchant: r[mapping.merchantIdx] || 'Unknown',
                     customers: parseInt(String(r[mapping.customerIdx]).replace(/,/g, '')) || 0,
                     prevBalance: r[mapping.prevIdx] || '0',
                     balance: r[mapping.balanceIdx] || '0',
                     usageText: status.text,
                     usageValue: status.type === 'used' ? status.percent : 0, 
-                    statusType: status.type
+                    statusType: status.type,
+                    history: historyData
                 };
             });
 
@@ -386,8 +543,12 @@
                 if (item.statusType === 'topup') badgeClass = "bg-emerald-100 text-emerald-800";
 
                 return `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 font-medium text-slate-900">${item.merchant}</td>
+                <tr class="hover:bg-slate-50 transition-colors cursor-pointer group" onclick="showMerchantDetails(${item.id})">
+                    <td class="px-6 py-4">
+                        <span class="font-bold text-indigo-600 group-hover:text-indigo-800 underline decoration-indigo-200 decoration-2 underline-offset-4 transition-all">
+                            ${item.merchant}
+                        </span>
+                    </td>
                     <td class="px-6 py-4 text-center text-slate-700">${item.customers.toLocaleString()}</td>
                     <td class="px-6 py-4 text-center text-slate-700">${formatNumber(item.prevBalance)}</td>
                     <td class="px-6 py-4 text-center text-slate-700">${formatNumber(item.balance)}</td>
@@ -412,6 +573,100 @@
             } else {
                 paginationContainer.classList.add('hidden');
             }
+        }
+
+        function showMerchantDetails(rowId) {
+            const merchantData = processedMerchants.find(m => m.id === rowId);
+            if (!merchantData) return;
+
+            document.getElementById('modalMerchantName').textContent = merchantData.merchant;
+            document.getElementById('modalCustomers').textContent = merchantData.customers.toLocaleString();
+            document.getElementById('modalPrevBal').textContent = formatNumber(merchantData.prevBalance);
+            document.getElementById('modalLatestBal').textContent = formatNumber(merchantData.balance);
+            document.getElementById('modalUsage').textContent = merchantData.usageText;
+
+            const modal = document.getElementById('merchantModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('modal-active'), 10);
+
+            renderHistoryChart(merchantData);
+        }
+
+        function renderHistoryChart(merchant) {
+            if (charts.history) charts.history.destroy();
+
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            const hasRealHistory = merchant.history && merchant.history.length > 0;
+            
+            // Logic to switch between real and simulated
+            let labels = [];
+            let dataPoints = [];
+            
+            if (hasRealHistory) {
+                labels = activeMapping.historyIndices.map(idx => currentSheetData.headers[idx]);
+                dataPoints = merchant.history;
+                document.getElementById('simulatedBadge').classList.add('hidden');
+                document.getElementById('realBadge').classList.remove('hidden');
+                document.getElementById('modalDisclaimer').textContent = "This chart is showing verified historical data selected from your spreadsheet columns.";
+            } else {
+                labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const baseUsage = merchant.usageValue || 15;
+                let seed = 0;
+                for(let i=0; i<merchant.merchant.length; i++) seed += merchant.merchant.charCodeAt(i);
+                dataPoints = labels.map((_, i) => {
+                    const variance = Math.sin(seed + i) * 15;
+                    return Math.max(2, Math.min(100, baseUsage + variance + (Math.random() * 5)));
+                });
+                document.getElementById('simulatedBadge').classList.remove('hidden');
+                document.getElementById('realBadge').classList.add('hidden');
+                document.getElementById('modalDisclaimer').textContent = "Note: Historical data in this preview is generated based on current period trends. Select history columns in mapping to use real data.";
+            }
+
+            charts.history = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: hasRealHistory ? 'Usage Value' : 'Usage Activity %',
+                        data: dataPoints,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#4f46e5',
+                        pointBorderWidth: 2,
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            ticks: { 
+                                callback: (v) => hasRealHistory ? v.toLocaleString() : v + '%' 
+                            }
+                        },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('merchantModal');
+            modal.classList.remove('modal-active');
+            setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
         function loadMore() {
