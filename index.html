@@ -431,14 +431,57 @@
             shareBtn.innerHTML = `<div class="loader w-4 h-4 mr-1"></div> Packaging...`;
 
             try {
-                // package up payload safely
-                const docData = {
-                    headers: currentSheetData.headers,
-                    rows: currentSheetData.rows,
-                    activeMapping: activeMapping
-                };
+                let docData;
+                const sheetUrlInput = document.getElementById('sheetUrl').value.trim();
 
-                // Compress serialized payload into URL-safe String
+                if (sheetUrlInput) {
+                    // Google Sheets Optimization: Share only URL & Configuration.
+                    // Size is tiny (~200 chars), loads live data dynamically on recipient side.
+                    docData = {
+                        type: 'sheet',
+                        sheetUrl: sheetUrlInput,
+                        activeMapping: activeMapping
+                    };
+                } else {
+                    // Local CSV Upload Optimization: Keep ONLY mapped column properties
+                    // & limit rows to the top 150 to guarantee URL fits within standard CDN/header limits (e.g. Netlify).
+                    const mapping = activeMapping;
+                    const keptIndices = [
+                        mapping.merchantIdx,
+                        mapping.customerIdx,
+                        mapping.prevIdx,
+                        mapping.balanceIdx,
+                        mapping.usageIdx,
+                        ...mapping.historyIndices
+                    ];
+
+                    // Safely trim rows to stay within secure URL thresholds (max 150 entries)
+                    const limitedRows = currentSheetData.rows.slice(0, 150);
+                    const optimizedRows = limitedRows.map(row => {
+                        return keptIndices.map(idx => row[idx] || "");
+                    });
+
+                    // Generate a new aligned mapping index structure
+                    const optimizedMapping = {
+                        merchantIdx: 0,
+                        customerIdx: 1,
+                        prevIdx: 2,
+                        balanceIdx: 3,
+                        usageIdx: 4,
+                        historyIndices: mapping.historyIndices.map((_, i) => 5 + i)
+                    };
+
+                    const optimizedHeaders = keptIndices.map(idx => currentSheetData.headers[idx] || "");
+
+                    docData = {
+                        type: 'csv',
+                        headers: optimizedHeaders,
+                        rows: optimizedRows,
+                        activeMapping: optimizedMapping
+                    };
+                }
+
+                // Compress serialized payload into URL-safe string
                 const rawJson = JSON.stringify(docData);
                 const compressed = LZString.compressToEncodedURIComponent(rawJson);
 
@@ -465,7 +508,7 @@
         };
 
         // Decodes and parses URL shared parameters
-        function checkURLShareState() {
+        async function checkURLShareState() {
             try {
                 const urlParams = new URLSearchParams(window.location.search);
                 const compressedData = urlParams.get('data');
@@ -484,13 +527,22 @@
                 }
 
                 const payload = JSON.parse(decompressed);
-                currentSheetData = { headers: payload.headers, rows: payload.rows };
-                activeMapping = payload.activeMapping;
 
-                // Execute immediate rendering engine
-                setTimeout(() => {
-                    processAndRender();
-                }, 100);
+                if (payload.type === 'sheet') {
+                    // Inject Google Sheet path, setup the mapping parameters & run standard query live
+                    document.getElementById('sheetUrl').value = payload.sheetUrl;
+                    activeMapping = payload.activeMapping;
+                    await loadDashboard(payload.sheetUrl);
+                    document.getElementById('configPanel').classList.add('hidden');
+                } else {
+                    // Load optimized static payload directly
+                    currentSheetData = { headers: payload.headers, rows: payload.rows };
+                    activeMapping = payload.activeMapping;
+                    // Execute immediate rendering engine
+                    setTimeout(() => {
+                        processAndRender();
+                    }, 100);
+                }
             } catch (err) {
                 console.error("Failed parsing decoded sharing state: ", err);
                 showStatus("The shared link is incomplete or broken. Please re-share a new link.");
@@ -566,8 +618,8 @@
             return { headers, rows };
         }
 
-        async function loadDashboard() {
-            const urlInput = document.getElementById('sheetUrl').value.trim();
+        async function loadDashboard(overrideUrl = null) {
+            const urlInput = overrideUrl || document.getElementById('sheetUrl').value.trim();
             const statusBox = document.getElementById('statusMsg');
             const loadBtn = document.getElementById('loadBtn');
             const configPanel = document.getElementById('configPanel');
@@ -580,7 +632,9 @@
                 if (!sheetIdMatch) throw new Error("Invalid URL.");
                 const sheetId = sheetIdMatch[1];
                 csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
-                localStorage.setItem('sms_dash_url', urlInput);
+                if (!overrideUrl) {
+                    localStorage.setItem('sms_dash_url', urlInput);
+                }
             } catch (e) {
                 return showStatus(e.message);
             }
@@ -597,7 +651,13 @@
                 if (data.length < 2) throw new Error("Empty sheet.");
                 
                 currentSheetData = processCSVData(data);
-                setupMappingPanel(currentSheetData.headers);
+                
+                // If loaded via a share link, auto-process and skip configuration panel
+                if (activeMapping) {
+                    processAndRender();
+                } else {
+                    setupMappingPanel(currentSheetData.headers);
+                }
             } catch (err) {
                 showStatus(err.message);
             } finally {
@@ -1069,6 +1129,7 @@
             window.location.href = url;
         }
 
+        // Actionable Error display box helper
         function showStatus(msg) {
             const box = document.getElementById('statusMsg');
             box.textContent = msg;
