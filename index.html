@@ -447,8 +447,8 @@
                 href = href.replace('blob:', '');
             }
             
-            // Clean out query tokens to avoid compounding parameters
-            return href.split('?')[0];
+            // Clean out query tokens and hashes to avoid compounding parameters
+            return href.split('?')[0].split('#')[0];
         }
 
         // Expose Firebase-backed functions globally so inline HTML onclick works
@@ -1072,12 +1072,39 @@
             const input = document.getElementById('shareLinkInput');
             input.select();
             input.setSelectionRange(0, 99999); // For mobile devices
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(input.value)
+                    .then(() => {
+                        showCopyFeedback();
+                    })
+                    .catch(() => {
+                        fallbackCopy();
+                    });
+            } else {
+                fallbackCopy();
+            }
+        }
+
+        function fallbackCopy() {
             try {
                 document.execCommand('copy');
-                document.getElementById('copySuccessMsg').classList.remove('hidden');
+                showCopyFeedback();
             } catch (err) {
-                console.error("Iframe Clipboard Copier Fallback failed: ", err);
+                console.error("Fallback clipboard copy failed: ", err);
             }
+        }
+
+        function showCopyFeedback() {
+            const msg = document.getElementById('copySuccessMsg');
+            msg.classList.remove('hidden');
+            const btn = document.getElementById('copyShareBtn');
+            btn.textContent = "Copied!";
+            btn.classList.replace('bg-indigo-600', 'bg-emerald-600');
+            setTimeout(() => {
+                btn.textContent = "Copy Link";
+                btn.classList.replace('bg-emerald-600', 'bg-indigo-600');
+            }, 2000);
         }
 
         function exitShareMode() {
