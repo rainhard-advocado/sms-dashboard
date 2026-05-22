@@ -6,6 +6,8 @@
     <title>SMS Usage Dashboard V1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- LZ-String Library for high performance compression -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -382,17 +384,19 @@
                     </div>
                 </div>
 
-                <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Your dynamic mapping configurations and current loaded CSV are published securely. Anyone with this link can view the dashboard, search, and inspect merchants. Column mapping tools and connection adjustments will be disabled.
-                </p>
-                <div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <input type="text" id="shareLinkInput" readonly class="bg-transparent border-none outline-none text-xs w-full text-slate-600 dark:text-slate-300 font-mono select-all">
-                    <button id="copyShareBtn" onclick="copyShareLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-bold transition-all whitespace-nowrap">
-                        Copy Link
-                    </button>
-                </div>
-                <div id="copySuccessMsg" class="hidden text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-2 text-center">
-                    Link copied to clipboard!
+                <div id="shareLinkContainer">
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                        Your dynamic mapping configurations and current loaded CSV are published securely. Anyone with this link can view the dashboard, search, and inspect merchants. Column mapping tools and connection adjustments will be disabled.
+                    </p>
+                    <div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <input type="text" id="shareLinkInput" readonly class="bg-transparent border-none outline-none text-xs w-full text-slate-600 dark:text-slate-300 font-mono select-all">
+                        <button id="copyShareBtn" onclick="copyShareLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-bold transition-all whitespace-nowrap">
+                            Copy Link
+                        </button>
+                    </div>
+                    <div id="copySuccessMsg" class="hidden text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-2 text-center">
+                        Link copied to clipboard!
+                    </div>
                 </div>
             </div>
             <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800 text-right">
@@ -403,60 +407,19 @@
         </div>
     </div>
 
-    <!-- Firebase SDK Modules -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase variables provided by environment
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sms-usage-dashboard';
-
-        let userAuthenticated = false;
-
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.error("Auth error:", err);
-            }
-        }
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                userAuthenticated = true;
-                // Check if page holds a share token
-                checkShareLink();
-            }
-        });
-
-        // Safe URL generator that strips "blob:" wrappers and corrects sandbox hostnames
+    <!-- Client-Side Serverless Sharing Script -->
+    <script>
+        // Clean URL builder helper
         function getCleanBaseUrl() {
             let href = window.location.href;
-            
-            // If inside a blob layout environment, bypass sandbox path limitations
             if (href.startsWith('blob:')) {
                 href = href.replace('blob:', '');
             }
-            
-            // Clean out query tokens and hashes to avoid compounding parameters
             return href.split('?')[0].split('#')[0];
         }
 
-        // Expose Firebase-backed functions globally so inline HTML onclick works
-        window.shareDashboard = async function() {
-            if (!userAuthenticated) {
-                showStatus("Authenticating... Please try sharing again in a moment.");
-                return;
-            }
+        // Share dashboard using URL-encoded data compression (Zero Firebase Required)
+        window.shareDashboard = function() {
             if (!currentSheetData || !activeMapping) {
                 showStatus("No data loaded. Connect a sheet or upload a CSV first before sharing.");
                 return;
@@ -465,28 +428,26 @@
             const shareBtn = document.getElementById('shareButton');
             const originalHTML = shareBtn.innerHTML;
             shareBtn.disabled = true;
-            shareBtn.innerHTML = `<div class="loader w-4 h-4 mr-1"></div> Creating...`;
+            shareBtn.innerHTML = `<div class="loader w-4 h-4 mr-1"></div> Packaging...`;
 
             try {
-                const shareId = crypto.randomUUID();
-                // Firestore does not support nested arrays, so we serialize currentSheetData.rows to a JSON string.
+                // package up payload safely
                 const docData = {
                     headers: currentSheetData.headers,
-                    rows: JSON.stringify(currentSheetData.rows),
-                    activeMapping: activeMapping,
-                    createdAt: Date.now()
+                    rows: currentSheetData.rows,
+                    activeMapping: activeMapping
                 };
 
-                // Store in standardized public path
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'dashboards', shareId);
-                await setDoc(docRef, docData);
+                // Compress serialized payload into URL-safe String
+                const rawJson = JSON.stringify(docData);
+                const compressed = LZString.compressToEncodedURIComponent(rawJson);
 
-                // Create public viewable URL cleanly using safe helper
                 const cleanBaseUrl = getCleanBaseUrl();
-                const shareLink = cleanBaseUrl + '?share=' + shareId;
+                const shareLink = cleanBaseUrl + '?data=' + compressed;
+                
                 document.getElementById('shareLinkInput').value = shareLink;
 
-                // Check if we are running in a sandbox/Google Workspace dynamic server context
+                // Sandbox checks
                 if (window.location.hostname.includes('.goog') || window.location.protocol.startsWith('blob')) {
                     document.getElementById('sandboxWarning').classList.remove('hidden');
                 } else {
@@ -495,56 +456,49 @@
 
                 openShareModal();
             } catch (error) {
-                console.error("Sharing failed: ", error);
-                showStatus("Could not save dashboard. Please verify configurations and try again.");
+                console.error("Packaging failed: ", error);
+                showStatus("Could not package dashboard. Try a smaller dataset.");
             } finally {
                 shareBtn.disabled = false;
                 shareBtn.innerHTML = originalHTML;
             }
         };
 
-        async function checkShareLink() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const shareId = urlParams.get('share');
-            if (!shareId) return;
-
-            // Trigger view-only configurations
-            document.getElementById('viewOnlyBanner').classList.remove('hidden');
-            document.getElementById('dashboardControls').classList.add('hidden');
-            document.getElementById('configPanel').classList.add('hidden');
-            document.getElementById('shareButton').classList.add('hidden');
-
+        // Decodes and parses URL shared parameters
+        function checkURLShareState() {
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'dashboards', shareId);
-                const docSnap = await getDoc(docRef);
+                const urlParams = new URLSearchParams(window.location.search);
+                const compressedData = urlParams.get('data');
+                if (!compressedData) return;
 
-                if (docSnap.exists()) {
-                    const payload = docSnap.data();
-                    
-                    // Deserialize payload rows string if it's stored as a JSON string
-                    let parsedRows = payload.rows;
-                    if (typeof payload.rows === 'string') {
-                        parsedRows = JSON.parse(payload.rows);
-                    }
-                    
-                    currentSheetData = { headers: payload.headers, rows: parsedRows };
-                    activeMapping = payload.activeMapping;
-                    
-                    // Render the exact processed view immediately
-                    processAndRender();
-                } else {
-                    showStatus("The shared dashboard you are trying to view does not exist or has expired.");
+                // Hide editing / configuration capabilities
+                document.getElementById('viewOnlyBanner').classList.remove('hidden');
+                document.getElementById('dashboardControls').classList.add('hidden');
+                document.getElementById('configPanel').classList.add('hidden');
+                document.getElementById('shareButton').classList.add('hidden');
+
+                // Decode & decompress
+                const decompressed = LZString.decompressFromEncodedURIComponent(compressedData);
+                if (!decompressed) {
+                    throw new Error("Unable to unpack url data string.");
                 }
+
+                const payload = JSON.parse(decompressed);
+                currentSheetData = { headers: payload.headers, rows: payload.rows };
+                activeMapping = payload.activeMapping;
+
+                // Execute immediate rendering engine
+                setTimeout(() => {
+                    processAndRender();
+                }, 100);
             } catch (err) {
-                console.error("Failed to load share state:", err);
-                showStatus("Unable to retrieve shared dashboard. Check network connectivity.");
+                console.error("Failed parsing decoded sharing state: ", err);
+                showStatus("The shared link is incomplete or broken. Please re-share a new link.");
             }
         }
-
-        // Initialize immediately
-        initAuth();
     </script>
 
+    <!-- Main Client Script -->
     <script>
         let charts = {};
         let currentSheetData = null;
@@ -559,9 +513,11 @@
         Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.1)';
 
         window.onload = () => {
-            // Only fetch storage if we are not loading a shared view link
+            // Check share state first
             const urlParams = new URLSearchParams(window.location.search);
-            if (!urlParams.get('share')) {
+            if (urlParams.get('data')) {
+                checkURLShareState();
+            } else {
                 const savedUrl = localStorage.getItem('sms_dash_url');
                 if (savedUrl) {
                     document.getElementById('sheetUrl').value = savedUrl;
@@ -833,7 +789,7 @@
 
             // Show share button on successful render if we are not in View-Only Mode
             const urlParams = new URLSearchParams(window.location.search);
-            if (!urlParams.get('share')) {
+            if (!urlParams.get('data')) {
                 document.getElementById('shareButton').classList.remove('hidden');
             }
 
@@ -1108,7 +1064,7 @@
         }
 
         function exitShareMode() {
-            // Simply remove the share parameter and reload to enter editable mode
+            // Simply remove the data parameter and reload to enter editable mode
             const url = window.location.origin + window.location.pathname;
             window.location.href = url;
         }
